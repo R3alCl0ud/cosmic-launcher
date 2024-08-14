@@ -136,6 +136,7 @@ pub struct CosmicLauncher {
     focused: usize,
     last_hide: Instant,
     alt_tab: bool,
+    alt_grav: bool,
 }
 
 #[derive(Debug, Clone)]
@@ -156,6 +157,7 @@ pub enum Message {
     ActivationToken(Option<String>, String, String, GpuPreference),
     AltTab,
     AltRelease,
+    AltGrav,
 }
 
 impl CosmicLauncher {
@@ -163,6 +165,7 @@ impl CosmicLauncher {
         self.input_value.clear();
         self.focused = 0;
         self.alt_tab = false;
+        self.alt_grav = false;
         self.wait_for_result = false;
 
         // XXX The close will reset the launcher, but the search will restart it so it's ready
@@ -202,6 +205,35 @@ impl CosmicLauncher {
             return;
         }
         self.focused = (self.focused + self.launcher_items.len() - 1) % self.launcher_items.len();
+    }
+
+    fn focus_next_current(&mut self) {
+        if self.launcher_items.is_empty() {
+            return;
+        }
+        let mut curwins = vec![];
+        let mut cur = 0;
+        for i in 0..self.launcher_items.len() {
+            if self.launcher_items[i].name == self.launcher_items[self.focused].name && i != self.focused {
+                curwins.push(i);
+            } 
+            if i == self.focused {
+                cur = i;
+            }
+        }
+        self.focused = curwins[(cur + 1) % curwins.len()];
+    }
+    fn focus_previous_current(&mut self) {
+        if self.launcher_items.is_empty() {
+            return;
+        }
+        let mut curwins = vec![];
+        for i in 0..self.launcher_items.len() {
+            if self.launcher_items[i].name == self.launcher_items[self.focused].name && i != self.focused {
+                curwins.push(i);
+            }
+        }
+        self.focused = curwins[(curwins.len() - 1) % curwins.len()];
     }
 }
 
@@ -254,6 +286,7 @@ impl cosmic::Application for CosmicLauncher {
                 focused: 0,
                 last_hide: Instant::now(),
                 alt_tab: false,
+                alt_grav: false
             },
             Command::none(),
         )
@@ -514,10 +547,17 @@ impl cosmic::Application for CosmicLauncher {
                 }
             }
             Message::AltRelease => {
-                if self.alt_tab {
+                if self.alt_tab || self.alt_grav {
                     return self.update(Message::Activate(None));
                 }
             }
+            Message::AltGrav => {
+                if self.alt_grav {
+                    self.focus_next_current();
+                } else {
+                    self.alt_grav = true;
+                }
+            },
         }
         Command::none()
     }
